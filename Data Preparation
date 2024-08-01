@@ -1,0 +1,610 @@
+---
+title: "data_prep"
+output: html_document
+date: "2024-04-14"
+---
+### Loading the required packages
+```{r}
+library(readr)
+library(haven)
+library(dplyr)
+library(tidyverse)
+library(stargazer)
+library(lmtest)
+library(ggplot2)
+library(sf)
+library(raster)
+library(lubridate)
+library(tidyr)
+library(AER)
+library(sandwich)
+library(car)
+library(broom)
+library(gt)
+library(here)
+library(modelsummary)
+library(flextable)
+library(officer)
+library(lmtest)
+
+
+here::i_am("tables/data_prep.Rmd")
+```
+
+### Import required data for main data set
+```{r}
+#hhdata for Tanzania
+val_tan<-read_dta(here("Daten", "working_data", "tanzania_complete.dta"))
+#hhdata for Uganda
+val_ug<-read_dta(here("Daten", "working_data", "uganda_complete.dta"))
+#hhdata for Kenya
+val_ken <- read_dta(here("Daten", "working_data", "kenya_complete.dta"))
+#agents for Kenya
+agents_ken <- readLines(here("Daten", "working_data", "agents_kenya_2017.txt"))
+agents_data_k <- read.table(text = agents_ken, sep = ",", header = TRUE)
+#agents for Tanzania
+agents_tan <- readLines(here("Daten", "working_data", "agents_tanzania.txt"))
+agents_data_t <- read.table(text = agents_tan, sep = ",", header = TRUE)
+#agents for Uganda
+agents_ug <- readLines(here("Daten", "working_data", "agents_uganda_2017.txt"))
+agents_data_u <- read.table(text = agents_ug, sep = ",", header = TRUE)
+```
+### First reduce data for Tanzania to only those variables needed
+```{r}
+tan<- dplyr::select(val_tan, A_6, A_12longitude,A_12latitude, H_1, h_14, h_15a, h_15b, h_15c, h_15d, h_15e, h15f, h15g, h15h, h15h_other,h_17, h_18,h_18b, h_19, h_20, h_20b, IE_1, IE_2, IE_3, IE_4, IE_5, IE_6, IE_7, IE_8, IE_9, IE_10, IE_11, IE_12, IE_13, IE_14, IE_15, IE_16, IE_17,mm_0, mm_1, mm_9, mm_10, mm_11, mm_12, mm_13, mm_14, mm_15, mm_16, mm_16a, mm_17, mm_19, mm_20, mm_21, mm_22, mm_23, mm_34, method_96, mm_35, mm_36, mm_37, D_2, D_3, D_4, D_5, D_6, D_7, D_10, D_14, D_16, D_17, hhsize,HH_Weight_Final, Ind_Weight_Final, A_7)
+```
+### Continue with Uganda
+```{r}
+uga<- dplyr::select(val_ug, longitude,latitude, H1, H14, H15a, H15b, H15c, H15d, H15e, H15f, H15g, h15h, h15hother, clean_h15hother, H17, H18, H18b, H19, H20, H20b, IE1, IE2, IE3, IE4, IE5, IE6, IE7, IE8, IE9, IE10, IE11, IE12, IE13, IE14, IE15, IE16, IE17, MM0, MM9, MM10, MM11, MM12, MM13, MM14, MM15, money_use_96, MM16, MM16other,clean_MM16other, MM17, MM19, MM20, MM21, MM22, MM23, MM34a, MM34b, MM35a, MM35b, MM36, MM37a, MM37b, MM37other, D2, D3, D4, D5, D7, D10, D14, D16, D17,HHsize, HHWeight, INDWeight, moneyservices)
+```
+### And Kenya
+```{r}
+ken<- dplyr::select(val_ken, Q_288_LO,Q_288_LA, H1, H14, H15a, H15b, H15c, H15d, H15e, H15f, H15g, H15h, H17, H18, H18b, H19, H20, H20b, IE1, IE2, IE3, IE4, IE5, IE6, IE7, IE8, IE9, IE10, IE11, IE12, IE13, IE14, IE15, IE16, IE17, MM0, MM1, MM9, MM10, MM11, MM12, MM13, MM14, MM15, MM16, MM17, MM19, MM20, MM21, MM22, MM23, MM34, MM35, MM36, MM37, D2, D3, D4, D5, D6, D7, D10, D14, D16, D17, HHsize, HHWeight, INDWeight, A7)
+```
+### Balancing the dataset for Tanzania by changing column names
+```{r}
+tan_bal <- rename(tan, 
+                  location = A_6, 
+                  longitude = A_12longitude, 
+                  latitude = A_12latitude, 
+                  own_rent = H_1, 
+                  internet = h_14, 
+                  intAc_MP = h_15a, 
+                  intAc_USBdonglesMifi = h_15b, 
+                  intAc_ADSL = h_15c, 
+                  intAc_Fibre = h_15d, 
+                  intAc_other = h_15e, 
+                  amount_HHIntUser = h15f, 
+                  amount_HHIntUser_u15 = h15g, 
+                  migratedFamilyMember_abroad = h_17, 
+                  receiveMoney_yes_most_frequent_way = h_18, 
+                  sendMoney_yes_most_frequent_way = h_18b, 
+                  HH_Bank_Account = h_19, 
+                  receive_socialgrant_pension = h_20, 
+                  HHamount_received_longterm_medical_treatment = h_20b, 
+                  monthly_income_wage = IE_1, 
+                  monthly_income_farming = IE_2, 
+                  monthly_income_vending_trading = IE_3, 
+                  monthly_income_homework = IE_4, 
+                  monthly_income_ownBusinessIncome = IE_5, 
+                  monthly_income_propertyInc = IE_6, 
+                  monthly_income_pension = IE_7, 
+                  monthly_income_allowance = IE_8, 
+                  monthly_income_scholarships = IE_9, 
+                  monthly_income_investments = IE_10, 
+                  monthly_income_other = IE_11, 
+                  total_income = IE_12, 
+                  contributions_to_HHincome = IE_13, 
+                  amount_free_disposal = IE_14, 
+                  mobile_phone_expenditure_all = IE_15, 
+                  mobile_phone_expenditure_data = IE_16, 
+                  total_savings = IE_17,
+                  heard_of_mm = mm_0,
+                  used_mm = mm_1, 
+                  main_mm_provider = mm_9, 
+                  mm_use_airtime = mm_10, 
+                  mm_use_salary_payments = mm_11, 
+                  mm_use_bill_payments = mm_12, 
+                  mm_use_insurance_payments = mm_13, 
+                  mm_use_receive_payments = mm_14, 
+                  mm_use_receive_pension = mm_15, 
+                  mm_use_other = mm_16, 
+                  mm_use_other1 = mm_16a, 
+                  largest_amount_sent_received_mm = mm_17, 
+                  usual_amount_sent_mm = mm_19, 
+                  usual_amount_receive_mm = mm_20, 
+                  how_often_send_or_receive_mm = mm_21, 
+                  how_many_days_stored_mm = mm_22, 
+                  how_much_usually_stored_in_phone_mm = mm_23, 
+                  no_mm_transfer_bank_office = mm_34, 
+                  no_mm_transfer_western_union = mm_35, 
+                  no_mm_transfer_sending_smo = mm_36, 
+                  no_mm_transfer_others = mm_37, 
+                  gender = D_2, 
+                  Age = D_3, 
+                  relation_HHhead = D_4, 
+                  marital_status = D_5, 
+                  highest_schooling = D_6, 
+                  total_years_schooling = D_7, 
+                  main_activity = D_10, 
+                  acces_bank_account_indiv = D_14, 
+                  literacy_reading = D_16, 
+                  literacy_writing = D_17,
+                  HH_Listing_ID = A_7)
+
+```
+### rename Uganda
+```{r}
+uga_bal <- rename(uga, 
+                  longitude = longitude, 
+                  latitude = latitude, 
+                  own_rent = H1, 
+                  internet = H14, 
+                  intAc_MP = H15a, 
+                  intAc_USBdonglesMifi = H15b, 
+                  intAc_ADSL = H15c, 
+                  intAc_Fibre = H15d, 
+                  intAc_other = H15e, 
+                  amount_HHIntUser = H15f, 
+                  amount_HHIntUser_u15 = H15g, 
+                  migratedFamilyMember_abroad = H17, 
+                  receiveMoney_yes_most_frequent_way = H18, 
+                  sendMoney_yes_most_frequent_way = H18b, 
+                  HH_Bank_Account = H19, 
+                  receive_socialgrant_pension = H20, 
+                  HHamount_received_longterm_medical_treatment = H20b, 
+                  monthly_income_wage = IE1, 
+                  monthly_income_farming = IE2, 
+                  monthly_income_vending_trading = IE3, 
+                  monthly_income_homework = IE4, 
+                  monthly_income_ownBusinessIncome = IE5, 
+                  monthly_income_propertyInc = IE6, 
+                  monthly_income_pension = IE7, 
+                  monthly_income_allowance = IE8, 
+                  monthly_income_scholarships = IE9, 
+                  monthly_income_investments = IE10, 
+                  monthly_income_other = IE11, 
+                  total_income = IE12, 
+                  contributions_to_HHincome = IE13, 
+                  amount_free_disposal = IE14, 
+                  mobile_phone_expenditure_all = IE15, 
+                  mobile_phone_expenditure_data = IE16, 
+                  total_savings = IE17, 
+                  heard_of_mm = MM0, 
+                  main_mm_provider = MM9, 
+                  mm_use_airtime = MM10, 
+                  mm_use_salary_payments = MM11, 
+                  mm_use_bill_payments = MM12, 
+                  mm_use_insurance_payments = MM13, 
+                  mm_use_receive_payments = MM14, 
+                  mm_use_receive_pension = MM15, 
+                  mm_use_other = MM16, 
+                  mm_use_other1 = MM16other, 
+                  largest_amount_sent_received_mm = MM17, 
+                  usual_amount_sent_mm = MM19, 
+                  usual_amount_receive_mm = MM20, 
+                  how_often_send_or_receive_mm = MM21, 
+                  how_many_days_stored_mm = MM22, 
+                  how_much_usually_stored_in_phone_mm = MM23, 
+                  no_mm_transfer_bank_office = MM34a,
+                  no_mm_transfer_bank_office1 = MM34b,
+                  no_mm_transfer_western_union = MM35a,
+                  no_mm_transfer_western_union1 = MM35b,
+                  no_mm_transfer_sending_smo = MM36, 
+                  no_mm_transfer_others = MM37a, 
+                  no_mm_transfer_others1 = MM37b,
+                  no_mm_transfer_others2 = MM37other,
+                  gender = D2, 
+                  Age = D3, 
+                  relation_HHhead = D4, 
+                  marital_status = D5, 
+                  total_years_schooling = D7, 
+                  main_activity = D10, 
+                  acces_bank_account_indiv = D14, 
+                  literacy_reading = D16, 
+                  literacy_writing = D17,
+                  used_mm = moneyservices)
+
+```
+### Now rename the columns for Kenya
+```{r}
+ken_bal <- rename(ken,  
+                  longitude = Q_288_LO, 
+                  latitude = Q_288_LA, 
+                  own_rent = H1, 
+                  internet = H14, 
+                  intAc_MP = H15a, 
+                  intAc_USBdonglesMifi = H15b, 
+                  intAc_ADSL = H15c, 
+                  intAc_Fibre = H15d, 
+                  intAc_other = H15e, 
+                  amount_HHIntUser = H15f, 
+                  amount_HHIntUser_u15 = H15g, 
+                  migratedFamilyMember_abroad = H17, 
+                  receiveMoney_yes_most_frequent_way = H18, 
+                  sendMoney_yes_most_frequent_way = H18b, 
+                  HH_Bank_Account = H19, 
+                  receive_socialgrant_pension = H20, 
+                  HHamount_received_longterm_medical_treatment = H20b, 
+                  monthly_income_wage = IE1, 
+                  monthly_income_farming = IE2, 
+                  monthly_income_vending_trading = IE3, 
+                  monthly_income_homework = IE4, 
+                  monthly_income_ownBusinessIncome = IE5, 
+                  monthly_income_propertyInc = IE6, 
+                  monthly_income_pension = IE7, 
+                  monthly_income_allowance = IE8, 
+                  monthly_income_scholarships = IE9, 
+                  monthly_income_investments = IE10, 
+                  monthly_income_other = IE11, 
+                  total_income = IE12, 
+                  contributions_to_HHincome = IE13, 
+                  amount_free_disposal = IE14, 
+                  mobile_phone_expenditure_all = IE15, 
+                  mobile_phone_expenditure_data = IE16, 
+                  total_savings = IE17, 
+                  heard_of_mm = MM0,
+                  used_mm = MM1,
+                  main_mm_provider = MM9, 
+                  mm_use_airtime = MM10, 
+                  mm_use_salary_payments = MM11, 
+                  mm_use_bill_payments = MM12, 
+                  mm_use_insurance_payments = MM13, 
+                  mm_use_receive_payments = MM14, 
+                  mm_use_receive_pension = MM15, 
+                  mm_use_other = MM16, 
+                  largest_amount_sent_received_mm = MM17, 
+                  usual_amount_sent_mm = MM19, 
+                  usual_amount_receive_mm = MM20, 
+                  how_often_send_or_receive_mm = MM21, 
+                  how_many_days_stored_mm = MM22, 
+                  how_much_usually_stored_in_phone_mm = MM23, 
+                  no_mm_transfer_bank_office = MM34,
+                  no_mm_transfer_western_union = MM35,
+                  no_mm_transfer_sending_smo = MM36, 
+                  no_mm_transfer_others = MM37, 
+                  gender = D2, 
+                  Age = D3, 
+                  relation_HHhead = D4, 
+                  marital_status = D5, 
+                  total_years_schooling = D7, 
+                  main_activity = D10, 
+                  acces_bank_account_indiv = D14, 
+                  literacy_reading = D16, 
+                  literacy_writing = D17,
+                  HH_Listing_ID = A7)
+
+```
+###Creating used_mm variable for Uganda, due to a lack of this variable in the data set. I've checked all the existing variables again and found the variable called moneyservices which is coded as followed:  
+#    0                  No
+#     1 Yes, Mobile banking
+#     2   Yes, Mobile money
+#     3           Yes, both
+#For the creation of the used_mm variable I'll only include answers of 2+3 as 1 for mobile money usage and those answers of 0 and 1 as 0.
+```{r}
+uga_bal$used_mm <- case_when(
+    uga_bal$used_mm == 0 ~ 0, # No
+    uga_bal$used_mm == 1 ~ 0, # Yes, Mobile banking
+    uga_bal$used_mm == 2 ~ 1, # Yes, Mobile money
+    uga_bal$used_mm == 3 ~ 1, # Yes, both
+    TRUE ~ NA_real_ # Assign NA to any other value
+)
+```
+### Transfer the answers of Tanzania for used mobile money into 1 and 0
+```{r}
+tan_bal <- tan_bal %>%
+  mutate(used_mm = case_when(
+    used_mm == 2 ~ 1,
+    used_mm == 96 ~ 0,
+    TRUE ~ NA_real_ # Assign NA to any other value, adjust as needed
+  ))
+tan_bal$intAc_MP <- as.numeric(as.character(tan_bal$intAc_MP))
+ken_bal$intAc_MP <- as.numeric(as.character(ken_bal$intAc_MP))
+uga_bal_clean$intAc_MP <- as.numeric(as.character(uga_bal_clean$intAc_MP))
+
+
+tan_bal <- tan_bal %>%
+  dplyr::mutate(intAc_MP_recode = case_when(
+    intAc_MP == 1 ~ 1,
+    intAc_MP == 97 ~ 0,
+    TRUE ~ NA_real_ # Assign NA to any other value, adjust as needed
+  ))
+```
+### Remove outlier agents of all three countries
+```{r}
+# Filter out agents with latitude greater than 5°N for Kenya
+agents_data_t <- agents_data_t[agents_data_t$latitude <= 5, ]
+
+agents_data_k <- agents_data_k[agents_data_k$latitude <= 5, ]
+agents_data_k <- agents_data_k[!(agents_data_k$latitude < -5), ]
+agents_data_k <- agents_data_k[!((agents_data_k$latitude < -2) & (agents_data_k$longitude >= 34 & agents_data_k$longitude <= 36)), ]
+
+
+agents_data_u <- agents_data_u[agents_data_u$latitude <= 5, ]
+agents_data_u <- agents_data_u[!((agents_data_u$longitude >= 29.7 & agents_data_u$longitude <= 30.3 & agents_data_u$latitude > 2)), ]
+agents_data_u <- agents_data_u[!(agents_data_u$latitude < -2), ]
+```
+### Calculating the distances in Tanzania from hh to agents
+```{r}
+# Convert household data to an sf object
+tan_hh_sf <- st_as_sf(tan_bal, coords = c("longitude", "latitude"), crs = 4326)
+
+# Convert agent data to an sf object
+tan_agents_sf <- st_as_sf(agents_data_t, coords = c("longitude", "latitude"), crs = 4326)
+
+# Calculate distances
+distances_tan <- st_distance(tan_hh_sf, tan_agents_sf)
+
+# Find the nearest distance for each household
+tan_bal$nearest_agent_distance <- apply(distances_tan, 1, min)
+
+
+# Transfer into meters
+tan_hh_sf_projected <- st_transform(tan_hh_sf, crs = 32736)
+tan_agents_sf_projected <- st_transform(tan_agents_sf, crs = 32736)
+
+# Calculate distances in meters
+distances_tan <- st_distance(tan_hh_sf_projected, tan_agents_sf_projected)
+
+# Find the nearest distance for each household
+tan_bal$nearest_agent_distance <- apply(distances_tan, 1, min)
+```
+### Do the same for Uganda
+```{r}
+# Apply na.omit only to longitude and latitude columns
+uga_bal_clean <- uga_bal[!is.na(uga_bal$longitude) & !is.na(uga_bal$latitude), ]
+# Convert household data to an sf object
+uga_hh_sf <- st_as_sf(uga_bal_clean, coords = c("longitude", "latitude"), crs = 4326)
+
+# Convert agent data to an sf object
+uga_agents_sf <- st_as_sf(agents_data_u, coords = c("longitude", "latitude"), crs = 4326)
+
+# Calculate distances
+distances_uga <- st_distance(uga_hh_sf, uga_agents_sf)
+
+# Find the nearest distance for each household
+uga_bal_clean$nearest_agent_distance <- apply(distances_uga, 1, min)
+
+#transfer into meters
+
+uga_hh_sf_projected <- st_transform(uga_hh_sf, crs = 32736)
+uga_agents_sf_projected <- st_transform(uga_agents_sf, crs = 32736)
+
+# Calculate distances in meters
+distances_uga <- st_distance(uga_hh_sf_projected, uga_agents_sf_projected)
+
+# Find the nearest distance for each household
+uga_bal_clean$nearest_agent_distance <- apply(distances_uga, 1, min)
+```
+### And Kenya
+```{r}
+#clean agents from NA
+agents_data_k_clean <- agents_data_k[!is.na(agents_data_k$longitude) & !is.na(agents_data_k$latitude), ]
+# Convert household data to an sf object
+ken_hh_sf <- st_as_sf(ken_bal, coords = c("longitude", "latitude"), crs = 4326)
+
+# Convert agent data to an sf object
+ken_agents_sf <- st_as_sf(agents_data_k_clean, coords = c("longitude", "latitude"), crs = 4326)
+
+# Calculate distances
+distances_ken <- st_distance(ken_hh_sf, ken_agents_sf)
+
+# Find the nearest distance for each household
+ken_bal$nearest_agent_distance <- apply(distances_ken, 1, min)
+
+#Transfer into meters
+ken_hh_sf_projected <- st_transform(ken_hh_sf, crs = 32736)
+ken_agents_sf_projected <- st_transform(ken_agents_sf, crs = 32736)
+
+# Calculate distances in meters
+distances_ken <- st_distance(ken_hh_sf_projected, ken_agents_sf_projected)
+
+# Find the nearest distance for each household
+ken_bal$nearest_agent_distance <- apply(distances_ken, 1, min)
+```
+### Divide the individuals into rural and urban. First Kenya:
+```{r}
+
+pop_density_ken <- raster(here("Daten", "working_data", "ken_pd_2017_1km_UNadj.tif"))
+
+
+ken_hh_urban_sf <- st_as_sf(ken_bal, coords = c("longitude", "latitude"), crs = st_crs(pop_density_ken))
+ken_agents_urban_sf <- st_as_sf(agents_data_k_clean, coords = c("longitude", "latitude"), crs = st_crs(pop_density_ken))
+
+
+ken_bal$pop_density <- raster::extract(pop_density_ken, ken_hh_urban_sf)
+agents_data_k_clean$pop_density <- raster::extract(pop_density_ken, ken_agents_urban_sf)
+
+urban_threshold <- 1500  # Threshold used by the worldbank referred in their blog
+
+ken_bal$urban_rural <- ifelse(ken_bal$pop_density > urban_threshold, "Urban", "Rural")
+agents_data_k_clean$urban_rural <- ifelse(agents_data_k_clean$pop_density > urban_threshold, "Urban", "Rural")
+```
+### Now do the same for Uganda
+```{r}
+pop_density_uga <- raster(here("Daten", "working_data", "uga_pd_2017_1km_UNadj.tif"))
+
+
+uga_hh_urban_sf <- st_as_sf(uga_bal_clean, coords = c("longitude", "latitude"), crs = st_crs(pop_density_uga))
+uga_agents_urban_sf <- st_as_sf(agents_data_u, coords = c("longitude", "latitude"), crs = st_crs(pop_density_uga))
+
+
+uga_bal_clean$pop_density <- raster::extract(pop_density_uga, uga_hh_urban_sf)
+agents_data_u$pop_density <- raster::extract(pop_density_uga, uga_agents_urban_sf)
+
+urban_threshold <- 1500  # Threshold used by the worldbank refer to their blog
+
+uga_bal_clean$urban_rural <- ifelse(uga_bal_clean$pop_density > urban_threshold, "Urban", "Rural")
+agents_data_u$urban_rural <- ifelse(agents_data_u$pop_density > urban_threshold, "Urban", "Rural")
+```
+### and now for Tanzania
+```{r}
+pop_density_tan <- raster(here("Daten", "working_data","tza_pd_2017_1km_UNadj.tif"))
+
+
+tan_hh_urban_sf <- st_as_sf(tan_bal, coords = c("longitude", "latitude"), crs = st_crs(pop_density_tan))
+tan_agents_urban_sf <- st_as_sf(agents_data_t, coords = c("longitude", "latitude"), crs = st_crs(pop_density_tan))
+
+
+tan_bal$pop_density <- raster::extract(pop_density_tan, tan_hh_urban_sf)
+agents_data_t$pop_density <- raster::extract(pop_density_tan, tan_agents_urban_sf)
+
+urban_threshold <- 1500  # Threshold used by the worldbank refer to their blog
+
+tan_bal$urban_rural <- ifelse(tan_bal$pop_density > urban_threshold, "Urban", "Rural")
+agents_data_t$urban_rural <- ifelse(agents_data_t$pop_density > urban_threshold, "Urban", "Rural")
+```
+### Transform the total income into USD for better comparability
+### Average exchange rates of 2017 where found here: https://www.exchange-rates.org/exchange-rate-history/tzs-usd-2017
+```{r}
+# Define the exchange rates
+exchange_rate_kenya = 0.009672
+exchange_rate_tanzania = 0.0004471
+exchange_rate_uganda = 3616.92
+
+# Convert the Kenyan data
+ken_bal$total_income_usd = ken_bal$total_income * exchange_rate_kenya
+ken_bal$total_savings_usd = ken_bal$total_savings * exchange_rate_kenya
+ken_bal$contributions_to_HHincome_usd = ken_bal$contributions_to_HHincome * exchange_rate_kenya
+
+ken_bal$HHamount_received_longterm_medical_treatment_usd = ken_bal$HHamount_received_longterm_medical_treatment * exchange_rate_kenya
+ken_bal$monthly_income_wage_usd = ken_bal$monthly_income_wage * exchange_rate_kenya
+ken_bal$monthly_income_farming_usd = ken_bal$monthly_income_farming * exchange_rate_kenya
+ken_bal$monthly_income_vending_trading_usd = ken_bal$monthly_income_vending_trading * exchange_rate_kenya
+ken_bal$monthly_income_homework_usd = ken_bal$monthly_income_homework * exchange_rate_kenya
+ken_bal$monthly_income_ownBusinessIncome_usd = ken_bal$monthly_income_ownBusinessIncome * exchange_rate_kenya
+ken_bal$monthly_income_propertyInc_usd = ken_bal$monthly_income_propertyInc * exchange_rate_kenya
+ken_bal$monthly_income_pension_usd = ken_bal$monthly_income_pension * exchange_rate_kenya
+ken_bal$monthly_income_allowance_usd = ken_bal$monthly_income_allowance * exchange_rate_kenya
+ken_bal$monthly_income_scholarships_usd = ken_bal$monthly_income_scholarships * exchange_rate_kenya
+ken_bal$monthly_income_investments_usd = ken_bal$monthly_income_investments * exchange_rate_kenya
+ken_bal$monthly_income_other_usd = ken_bal$monthly_income_other * exchange_rate_kenya
+
+```
+
+also for Tanzania
+```{r}
+# Convert the Tanzanian data
+tan_bal$total_income_usd = tan_bal$total_income * exchange_rate_tanzania
+tan_bal$total_savings_usd = tan_bal$total_savings * exchange_rate_tanzania
+tan_bal$contributions_to_HHincome_usd = tan_bal$contributions_to_HHincome * exchange_rate_tanzania
+tan_bal$HHamount_received_longterm_medical_treatment_usd = tan_bal$HHamount_received_longterm_medical_treatment * exchange_rate_tanzania
+
+tan_bal$monthly_income_wage_usd = tan_bal$monthly_income_wage * exchange_rate_tanzania
+tan_bal$monthly_income_farming_usd = tan_bal$monthly_income_farming * exchange_rate_tanzania
+tan_bal$monthly_income_vending_trading_usd = tan_bal$monthly_income_vending_trading * exchange_rate_tanzania
+tan_bal$monthly_income_homework_usd = tan_bal$monthly_income_homework * exchange_rate_tanzania
+tan_bal$monthly_income_ownBusinessIncome_usd = tan_bal$monthly_income_ownBusinessIncome * exchange_rate_tanzania
+tan_bal$monthly_income_propertyInc_usd = tan_bal$monthly_income_propertyInc * exchange_rate_tanzania
+tan_bal$monthly_income_pension_usd = tan_bal$monthly_income_pension * exchange_rate_tanzania
+tan_bal$monthly_income_allowance_usd = tan_bal$monthly_income_allowance * exchange_rate_tanzania
+tan_bal$monthly_income_scholarships_usd = tan_bal$monthly_income_scholarships * exchange_rate_tanzania
+tan_bal$monthly_income_investments_usd = tan_bal$monthly_income_investments * exchange_rate_tanzania
+tan_bal$monthly_income_other_usd = tan_bal$monthly_income_other * exchange_rate_tanzania
+
+```
+
+And Uganda
+```{r}
+# Convert the Ugandan data
+uga_bal_clean$total_income_usd = uga_bal_clean$total_income / exchange_rate_uganda
+uga_bal_clean$total_savings_usd = uga_bal_clean$total_savings / exchange_rate_uganda
+uga_bal_clean$contributions_to_HHincome_usd = uga_bal_clean$contributions_to_HHincome / exchange_rate_uganda
+uga_bal_clean$HHamount_received_longterm_medical_treatment_usd = uga_bal_clean$HHamount_received_longterm_medical_treatment / exchange_rate_uganda
+
+uga_bal_clean$monthly_income_wage_usd = uga_bal_clean$monthly_income_wage / exchange_rate_uganda
+uga_bal_clean$monthly_income_farming_usd = uga_bal_clean$monthly_income_farming / exchange_rate_uganda
+uga_bal_clean$monthly_income_vending_trading_usd = uga_bal_clean$monthly_income_vending_trading / exchange_rate_uganda
+uga_bal_clean$monthly_income_homework_usd = uga_bal_clean$monthly_income_homework / exchange_rate_uganda
+uga_bal_clean$monthly_income_ownBusinessIncome_usd = uga_bal_clean$monthly_income_ownBusinessIncome / exchange_rate_uganda
+uga_bal_clean$monthly_income_propertyInc_usd = uga_bal_clean$monthly_income_propertyInc / exchange_rate_uganda
+uga_bal_clean$monthly_income_pension_usd = uga_bal_clean$monthly_income_pension / exchange_rate_uganda
+uga_bal_clean$monthly_income_allowance_usd = uga_bal_clean$monthly_income_allowance / exchange_rate_uganda
+uga_bal_clean$monthly_income_scholarships_usd = uga_bal_clean$monthly_income_scholarships / exchange_rate_uganda
+uga_bal_clean$monthly_income_investments_usd = uga_bal_clean$monthly_income_investments / exchange_rate_uganda
+uga_bal_clean$monthly_income_other_usd = uga_bal_clean$monthly_income_other / exchange_rate_uganda
+```
+### Create log distance, log income and log savings
+```{r}
+tan_bal$log_nearest_agent <- log(tan_bal$nearest_agent_distance)
+ken_bal$log_nearest_agent <- log(ken_bal$nearest_agent_distance)
+uga_bal_clean$log_nearest_agent <- log(uga_bal_clean$nearest_agent_distance)
+
+tan_bal$log_income <- log(tan_bal$total_income_usd)
+ken_bal$log_income <- log(ken_bal$total_income_usd)
+uga_bal_clean$log_income <- log(uga_bal_clean$total_income_usd)
+
+tan_bal$log_savings <- log(tan_bal$total_savings_usd)
+ken_bal$log_savings <- log(ken_bal$total_savings_usd)
+uga_bal_clean$log_savings <- log(uga_bal_clean$total_savings_usd)
+```
+### Further Cleaning the Dataset
+```{r}
+
+ken_bal <- ken_bal %>%
+  filter(
+    !is.na(used_mm) & 
+    !is.na(total_income_usd) & 
+    !is.na(total_savings_usd) & 
+    !is.na(log_income) & 
+    !is.na(log_savings) & 
+    !is.na(nearest_agent_distance) &
+    !is.na(gender) &
+    !is.na(literacy_reading) &
+    !is.na(Age) &
+    !is.na(total_years_schooling) &
+    !is.na(HH_Bank_Account) &
+    !is.na(log_nearest_agent)
+  )
+
+tan_bal <- tan_bal %>%
+  filter(
+    !is.na(used_mm) & 
+    !is.na(total_income_usd) & 
+    !is.na(total_savings_usd) & 
+    !is.na(log_income) & 
+    !is.na(log_savings) & 
+    !is.na(nearest_agent_distance) &
+    !is.na(gender) &
+    !is.na(literacy_reading) &
+    !is.na(Age) &
+    !is.na(total_years_schooling) &
+    !is.na(HH_Bank_Account) &
+    !is.na(log_nearest_agent)
+  )
+
+uga_bal_clean <- uga_bal_clean %>%
+  filter(
+    !is.na(used_mm) & 
+    !is.na(total_income_usd) & 
+    !is.na(total_savings_usd) & 
+    !is.na(log_income) & 
+    !is.na(log_savings) & 
+    !is.na(nearest_agent_distance) &
+    !is.na(gender) &
+    !is.na(literacy_reading) &
+    !is.na(Age) &
+    !is.na(total_years_schooling) &
+    !is.na(HH_Bank_Account) &
+    !is.na(log_nearest_agent)
+  )
+ken_bal <- ken_bal %>% filter(!is.na(nearest_agent_distance))
+tan_bal <- tan_bal %>% filter(!is.na(nearest_agent_distance))
+uga_bal_clean <- uga_bal_clean %>% filter(!is.na(nearest_agent_distance))
+
+tan_bal <- tan_bal %>%
+  filter(!is.infinite(log_savings), !is.na(log_savings))
+uga_bal_clean <- uga_bal_clean %>%
+  filter(!is.infinite(log_savings), !is.na(log_savings))
+
+
+```
+
+### Save working samples for Tanzania, Kenya and Uganda
+```{r}
+saveRDS(tan_bal, here("Daten", "working_data", "tanzania_work_sample.RDS"))
+
+saveRDS(uga_bal_clean, here("Daten", "working_data", "uganda_work_sample.RDS"))
+
+saveRDS(ken_bal, here("Daten", "working_data", "kenya_work_sample.RDS"))
+```
