@@ -1,0 +1,595 @@
+---
+title: "descriptives"
+output: html_document
+date: "2024-01-20"
+---
+show the locations of the agents and the households
+```{r}
+
+base_map_ken <- read_sf("Daten", "working_data","gadm41_KEN_3.shp")
+
+ggplot() +
+  geom_sf(data = ken_agents_sf, color = "red", size = 1) +
+  theme_minimal()
+ggplot() +
+  geom_sf(data = ken_hh_sf, color = "blue", size = 1) +
+  theme_minimal()
+
+plot_hh_agents_ken <- ggplot() +
+  geom_sf(data = base_map_ken, fill = "lightgray") +  # Base map
+  geom_sf(data = ken_agents_sf, color = "red", size = 1) +
+  geom_sf(data = ken_hh_sf, color = "blue", size = 1)+
+  theme_minimal()
+
+ggsave("plot_hh_agents_ken.pdf", plot = plot_hh_agents_ken, width = 11, height = 8)
+
+pdf("plot_hh_agents_ken", width = 11, height = 8)
+print(plot_hh_agents_ken)
+dev.off()
+
+```
+Show the locations of the agents and the households in Uganda
+```{r}
+
+base_map_uga <- read_sf("Daten", "working_data","gadm41_UGA_3.shp")
+
+plot_hh_agents_uga <- ggplot() +
+  geom_sf(data = base_map_uga, fill = "lightgray") +  # Base map
+  geom_sf(data = uga_agents_sf, color = "red", size = 1) +
+  geom_sf(data = uga_hh_sf, color = "blue", size = 1)+
+  theme_minimal()
+
+ggsave("plot_hh_agents_uga.pdf", plot = plot_hh_agents_uga, width = 11, height = 8)
+
+pdf("plot_hh_agents_uga", width = 11, height = 8)
+print(plot_hh_agents_uga)
+dev.off()
+```
+
+and for Tanzania
+```{r}
+base_map_tan <- read_sf("Daten", "working_data","gadm41_TZA_3.shp")
+
+plot_hh_agents_tan <- ggplot() +
+  geom_sf(data = base_map_tan, fill = "lightgray") +  # Base map
+  geom_sf(data = tan_agents_sf, color = "red", size = 0.5) +
+  geom_sf(data = tan_hh_sf, color = "blue", size = 0.5)+
+  theme_minimal()
+
+ggsave("plot_hh_agents_tan.pdf", plot = plot_hh_agents_tan, width = 11, height = 8)
+
+pdf("plot_hh_agents_tan", width = 11, height = 8)
+print(plot_hh_agents_tan)
+dev.off()
+```
+
+
+Prepare table for presentation
+```{r}
+# For Kenya
+kenya_summary <- data.frame(
+  Country = "Kenya",
+  Total_Observations = nrow(ken_bal),
+  Gender_Percentage = mean(ken_bal$gender, na.rm = TRUE) * 100, # calculates female percentage
+  Average_Distance = mean(ken_bal$nearest_agent_distance, na.rm = TRUE),
+  Average_Income = mean(ken_bal$total_income, na.rm = TRUE)*12
+)
+
+# For Tanzania
+tanzania_summary <- data.frame(
+  Country = "Tanzania",
+  Total_Observations = nrow(tan_bal),
+  Gender_Percentage = mean(tan_bal$gender) * 100,
+  Average_Distance = mean(tan_bal$nearest_agent_distance, na.rm = TRUE),
+  Average_Income = mean(tan_bal$total_income, na.rm = TRUE)*12
+)
+
+#For Uganda
+uganda_summary <- data.frame(
+  Country = "Uganda",
+  Total_Observations = nrow(uga_bal_clean),
+  Gender_Percentage = mean(uga_bal_clean$gender) * 100,
+  Average_Distance = mean(uga_bal_clean$nearest_agent_distance, na.rm = TRUE),
+  Average_Income = mean(uga_bal_clean$total_income, na.rm = TRUE)*12
+)
+
+# Combine summaries
+summary_table <- rbind(kenya_summary, tanzania_summary, uganda_summary)
+
+summary_table$Total_Observations <- round(summary_table$Total_Observations)
+summary_table$Gender_Percentage <- round(summary_table$Gender_Percentage, 2)
+summary_table$Average_Distance <- round(summary_table$Average_Distance, 2)
+summary_table$Average_Income <- round(summary_table$Average_Income, 2)
+
+print(summary_table)
+
+# Save to a CSV file
+write.csv(summary_table, "summary_table.csv", row.names = FALSE)
+```
+
+### Create Table for thesis and presentation median
+```{r}
+# Calculate means for Kenya
+median_kenya <- ken_bal %>%
+  summarise(across(c(total_income_usd, total_savings_usd, nearest_agent_distance, gender, Age, total_years_schooling), median, na.rm = TRUE))
+
+# Calculate means for Tanzania
+median_tanzania <- tan_bal %>%
+  summarise(across(c(total_income_usd, total_savings_usd, nearest_agent_distance, gender, Age, total_years_schooling), median, na.rm = TRUE))
+
+# Calculate means for Uganda
+median_uganda <- uga_bal_clean %>%
+  summarise(across(c(total_income_usd, total_savings_usd, nearest_agent_distance, gender, Age, total_years_schooling), median, na.rm = TRUE))
+
+
+
+```
+
+```{r}
+# Add country identifier
+median_kenya$Country <- "Kenya"
+median_tanzania$Country <- "Tanzania"
+median_uganda$Country <- "Uganda"
+
+
+# Combine into a single data frame
+combined_medians <- bind_rows(median_kenya, median_tanzania, median_uganda)
+
+# Reorder columns so that Country is the first column
+combined_medians <- combined_medians %>% dplyr::select(Country, everything())
+
+```
+
+```{r}
+
+# Create a new Word document
+doc <- read_docx()
+
+# Add a title
+doc <- doc %>% 
+  body_add_par("Descriptive Statistics by Country", style = "heading 1")
+
+# Add the table without specifying the 'Table Grid' style
+doc <- doc %>% 
+  body_add_table(combined_medians, style = "Normal") # Or simply omit the 'style' argument
+
+# Save the Word document
+print(doc, target = "Descriptive_Statistics_by_Country_median.docx")
+
+
+```
+
+### Create Table for thesis and presentation mean 
+```{r}
+
+mean_kenya <- ken_bal %>%
+  mutate(
+    total_income_usd_annual = total_income_usd * 12,
+    total_savings_usd_annual = total_savings_usd * 12
+  ) %>%
+  summarise(
+    mean_income_annual = mean(total_income_usd_annual, na.rm = TRUE),
+    mean_savings_annual = mean(total_savings_usd_annual, na.rm = TRUE),
+    mean_nearest_agent_distance = mean(nearest_agent_distance, na.rm = TRUE),
+    mean_gender = mean(gender, na.rm = TRUE),  
+    mean_age = mean(Age, na.rm = TRUE),
+    mean_years_schooling = mean(total_years_schooling, na.rm = TRUE)
+  )
+
+
+
+mean_tanzania <- tan_bal %>%
+  mutate(
+    total_income_usd_annual = total_income_usd * 12,
+    total_savings_usd_annual = total_savings_usd * 12
+  ) %>%
+  summarise(
+    mean_income_annual = mean(total_income_usd_annual, na.rm = TRUE),
+    mean_savings_annual = mean(total_savings_usd_annual, na.rm = TRUE),
+    mean_nearest_agent_distance = mean(nearest_agent_distance, na.rm = TRUE),
+    mean_gender = mean(gender, na.rm = TRUE), 
+    mean_age = mean(Age, na.rm = TRUE),
+    mean_years_schooling = mean(total_years_schooling, na.rm = TRUE)
+  )
+
+mean_uganda <- uga_bal_clean %>%
+  mutate(
+    total_income_usd_annual = total_income_usd * 12,
+    total_savings_usd_annual = total_savings_usd * 12
+  ) %>%
+  summarise(
+    mean_income_annual = mean(total_income_usd_annual, na.rm = TRUE),
+    mean_savings_annual = mean(total_savings_usd_annual, na.rm = TRUE),
+    mean_nearest_agent_distance = mean(nearest_agent_distance, na.rm = TRUE),
+    mean_gender = mean(gender, na.rm = TRUE),  
+    mean_age = mean(Age, na.rm = TRUE),
+    mean_years_schooling = mean(total_years_schooling, na.rm = TRUE)
+  )
+
+
+```
+## I added the observation number manually
+```{r}
+# Add country identifier
+mean_kenya$Country <- "Kenya"
+mean_tanzania$Country <- "Tanzania"
+mean_uganda$Country <- "Uganda"
+
+
+# Combine into a single data frame
+combined_means <- bind_rows(mean_kenya, mean_tanzania, mean_uganda)
+
+# Reorder columns so that Country is the first column
+combined_means <- combined_means %>% dplyr::select(Country, everything())
+
+```
+
+```{r}
+
+# Create a new Word document
+doc <- read_docx()
+
+# Add a title
+doc <- doc %>% 
+  body_add_par("Descriptive Statistics by Country", style = "heading 1")
+
+# Add the table without specifying the 'Table Grid' style
+doc <- doc %>% 
+  body_add_table(combined_means, style = "Normal") # Or simply omit the 'style' argument
+
+# Save the Word document
+print(doc, target = "Descriptive_Statistics_by_Country_mean.docx")
+
+
+```
+
+
+
+```{r}
+ken_bal$Country <- 'Kenya'
+tan_bal$Country <- 'Tanzania'
+uga_bal_clean$Country <- 'Uganda'
+
+
+kenya_data <- ken_bal %>%
+  dplyr::select(marital_status, literacy_reading) %>%
+  dplyr::mutate(Country = 'Kenya')
+
+tanzania_data <- tan_bal %>%
+  dplyr::select(marital_status, literacy_reading) %>%
+  dplyr::mutate(Country = 'Tanzania')
+
+uganda_data <- uga_bal_clean %>%
+  dplyr::select(marital_status, literacy_reading) %>%
+ dplyr::mutate(Country = 'Uganda')
+
+combined_data <- bind_rows(kenya_data, tanzania_data, uganda_data)
+
+combined_data$marital_status <- factor(combined_data$marital_status,
+  levels = c(1, 2, 3, 4, 97),
+  labels = c("Married", "Single", "Widowed", "Divorced", "Other")
+)
+
+combined_data$literacy_reading <- factor(combined_data$literacy_reading,
+  levels = c(1, 2, 3),
+  labels = c("Yes, easily", "Yes, with difficulty", "Not at all")
+)
+
+```
+
+### Plotting the mariatal Status
+```{r}
+marital_status_plot<-ggplot(combined_data, aes(x = marital_status, fill = Country)) +
+  geom_bar(position = "dodge") +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Marital Status Distribution by Country",
+       x = "Marital Status",
+       y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+ggsave("marital_status_distribution.png", plot = marital_status_plot, width = 8, height = 6, dpi = 300)
+
+```
+
+### Plotting literacy reading
+```{r}
+literacy_levels_plot <- ggplot(combined_data, aes(x = literacy_reading, fill = Country)) +
+  geom_bar(position = "dodge") +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Literacy Levels Distribution by Country",
+       x = "Literacy Reading Level",
+       y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave("literacy_levels_distribution.png", plot = literacy_levels_plot, width = 8, height = 6, dpi = 300)
+
+
+```
+Further balancing the dataset
+```{r}
+dim(tan_bal)  # Dimensions of the dataset
+str(tan_bal)  # Structure of the dataset
+summary(tan_bal)  # Summary of the dataset
+table(tan_bal$gender)  # Replace 'Country' with the actual variable name
+barplot(table(tan_bal$gender))
+
+tan_bal$country <- "Tanzania"
+uga_bal$country <- "Uganda"
+ken_bal$country <- "Kenya"
+
+tan_gender <- tan_bal[, c("country", "gender")]
+uga_gender <- uga_bal[, c("country", "gender")]
+ken_gender <- ken_bal[, c("country", "gender")]
+
+tan_gender<-na.omit(tan_gender)
+uga_gender<-na.omit(uga_gender)
+ken_gender<-na.omit(ken_gender)
+
+combined_gender <- rbind(tan_gender, uga_gender, ken_gender)
+
+plot_gender <- ggplot(combined_gender, aes(x = factor(gender, labels = c("Male", "Female")), fill = country)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Gender Distribution across Countries", x = "Gender", y = "Count") +
+  scale_fill_brewer(palette = "Set1") 
+
+ggsave("plot_gender.pdf", plot = plot_gender, width = 11, height = 8)
+
+pdf("plot_gender.pdf", width = 11, height = 8)
+print(plot_gender)
+dev.off()
+
+```
+### Plotting the distribution of households and agents (not the final one yet)
+```{r}
+tan_subset <- data.frame(country = "Tanzania", distance = tan_bal$nearest_agent_distance)
+uga_subset <- data.frame(country = "Uganda", distance = uga_bal_clean$nearest_agent_distance)
+ken_subset <- data.frame(country = "Kenya", distance = ken_bal$nearest_agent_distance)
+
+combined_distances <- rbind(tan_subset, uga_subset, ken_subset)
+
+
+ggplot(combined_distances, aes(x = distance, fill = country)) +
+  geom_histogram(position = "dodge", binwidth = 1) +
+  labs(title = "Distribution of Distances to Nearest Mobile Money Agent by Country",
+       x = "Distance (km)",
+       y = "Number of Households") +
+  scale_fill_brewer(palette = "Set1")
+
+# doing the same with log 
+# Adding 1 to each distance value before taking the logarithm
+combined_distances$distance_log <- log(combined_distances$distance + 1)
+
+ggplot(combined_distances, aes(x = distance_log, fill = country)) +
+  geom_histogram(position = "dodge", binwidth = 0.1) +
+  labs(title = "Log-Transformed Distribution of Distances to Nearest Mobile Money Agent by Country",
+       x = "Log of Distance (km)",
+       y = "Number of Households") +
+  scale_fill_brewer(palette = "Set1")
+
+```
+### Creating the big map displayed in the thesis
+```{r}
+# Read shapefiles for each country
+base_map_uga <- read_sf("Daten", "working_data","gadm41_UGA_1.shp")
+base_map_ken <- read_sf("Daten", "working_data","gadm41_KEN_1.shp")
+base_map_tan <- read_sf("Daten", "working_data","gadm41_TZA_1.shp")
+
+
+# Combine base maps for plotting
+combined_base_map <- rbind(base_map_uga, base_map_ken, base_map_tan)
+
+# Plotting
+plot_hh_agents_combined <- ggplot() +
+  geom_sf(data = combined_base_map,) +
+  geom_sf(data = base_map_uga, fill = NA, color = "darkseagreen1", lwd = 0.7) +
+  geom_sf(data = uga_agents_sf, color = "darkseagreen4", size = 0.2) +
+  geom_sf(data = uga_hh_sf, color = "black", size = 0.5, shape = 24) +  
+  geom_sf(data = base_map_ken, fill = "beige", lwd = 0.7) +
+  geom_sf(data = ken_agents_sf, color = "darkgoldenrod2", size = 0.2) +
+  geom_sf(data = ken_hh_sf, color = "black", size = 0.5, shape = 24) +   
+  geom_sf(data = base_map_tan, fill = NA, color = "cadetblue1", lwd = 0.7) +
+  geom_sf(data = tan_agents_sf, color = "darkturquoise", size = 0.2) +  
+  geom_sf(data = tan_hh_sf, color = "black", size = 0.5, shape = 24) +
+  theme_minimal() +
+  labs(title = "Households and Mobile Money Agents in East Africa",
+       subtitle = "Uganda, Kenya, Tanzania",
+       colour = "Legend")
+
+# Display the combined plot
+print(plot_hh_agents_combined)
+
+ggsave("plot_hh_agents_combined.pdf", plot = plot_hh_agents_combined, width = 11, height = 8)
+
+pdf("plot_hh_agents_combined", width = 11, height = 8)
+print(plot_hh_agents_combined)
+dev.off()
+
+
+plot_hh_agents_combined_1 <- ggplot() +
+  geom_sf(data = combined_base_map) +
+  geom_sf(data = base_map_uga, aes(fill = "Uganda"), color = "darkseagreen1", lwd = 0.7) +
+  geom_sf(data = uga_agents_sf, aes(color = "Agents (UGA)"), size = 0.2) +
+  geom_sf(data = uga_hh_sf, aes(color = "Households (UGA)", shape = "Households (UGA)"), size = 0.5) +  
+  geom_sf(data = base_map_ken, aes(fill = "Kenya"), color = "beige", lwd = 0.7) +
+  geom_sf(data = ken_agents_sf, aes(color = "Agents (KEN)"), size = 0.2) +
+  geom_sf(data = ken_hh_sf, aes(color = "Households (KEN)", shape = "Households (KEN)"), size = 0.5) +   
+  geom_sf(data = base_map_tan, aes(fill = "Tanzania"), color = "cadetblue1", lwd = 0.7) +
+  geom_sf(data = tan_agents_sf, aes(color = "Agents (TAN)"), size = 0.2) +  
+  geom_sf(data = tan_hh_sf, aes(color = "Households (TAN)", shape = "Households (TAN)"), size = 0.5) +
+  theme_minimal() +
+  labs(title = "Households and Mobile Money Agents in East Africa",
+       subtitle = "Uganda, Kenya, Tanzania") +
+  scale_fill_manual(name = "Country", values = c("Uganda" = "darkseagreen1", "Kenya" = "beige", "Tanzania" = "cadetblue1")) +
+  scale_color_manual(name = "Type", values = c("Agents (UGA)" = "darkseagreen4", 
+                                                "Agents (KEN)" = "darkgoldenrod2", 
+                                                "Agents (TAN)" = "darkturquoise",
+                                                "Households (UGA)" = "black", 
+                                                "Households (KEN)" = "black", 
+                                                "Households (TAN)" = "black")) +
+  scale_shape_manual(name = "Type", values = c("Households (UGA)" = 24, 
+                                               "Households (KEN)" = 24, 
+                                               "Households (TAN)" = 24))
+
+# Display the combined plot
+print(plot_hh_agents_combined_1)
+
+ggsave("plot_hh_agents_combined_1.pdf", plot = plot_hh_agents_combined_1, width = 11, height = 8)
+
+pdf("plot_hh_agents_combined_1", width = 11, height = 8)
+print(plot_hh_agents_combined_1)
+dev.off()
+
+#### Now try to add capitals
+
+capitals <- data.frame(
+  Country = c("Uganda", "Kenya", "Tanzania"),
+  Capital = c("Kampala", "Nairobi", "Dodoma"),
+  Longitude = c(32.5825, 36.817223, 35.7516),
+  Latitude = c(0.3476, -1.286389, -6.1630)
+)
+
+
+### Map with capitals
+
+plot_hh_agents_combined_capital <- ggplot() +
+  geom_sf(data = combined_base_map) +
+  geom_sf(data = base_map_uga, aes(fill = "Uganda"), color = "darkseagreen1", lwd = 0.7) +
+  geom_sf(data = uga_agents_sf, aes(color = "Agents (UGA)"), size = 0.2, shape = 20) +
+  geom_sf(data = uga_hh_sf, aes(color = "Households (UGA)", shape = "Households"), size = 0.5) +  
+  geom_sf(data = base_map_ken, aes(fill = "Kenya"), color = "bisque", lwd = 0.7) +
+  geom_sf(data = ken_agents_sf, aes(color = "Agents (KEN)"), size = 0.2, shape = 20) +
+  geom_sf(data = ken_hh_sf, aes(color = "Households (KEN)", shape = "Households"), size = 0.5) +   
+  geom_sf(data = base_map_tan, aes(fill = "Tanzania"), color = "cadetblue1", lwd = 0.7) +
+  geom_sf(data = tan_agents_sf, aes(color = "Agents (TAN)"), size = 0.2, shape = 20) +  
+  geom_sf(data = tan_hh_sf, aes(color = "Households (TAN)", shape = "Households"), size = 0.5) +
+  geom_point(data = capitals, aes(x = Longitude, y = Latitude, color = "brown2", shape = "Capitals"), size = 3) +
+  scale_fill_manual(name = "Country", 
+                    values = c("Uganda" = "darkseagreen1", "Kenya" = "bisque", "Tanzania" = "cadetblue1")) +
+  scale_color_manual(name = "Colours", 
+                     values = c("Agents (UGA)" = "darkseagreen4", 
+                                "Agents (KEN)" = "darkgoldenrod2", 
+                                "Agents (TAN)" = "darkturquoise",
+                                "Households (UGA)" = "black", 
+                                "Households (KEN)" = "black", 
+                                "Households (TAN)" = "black",
+                                "Kampala" = "brown2", "Nairobi" = "blue2", "Dodoma" = "darkorchid")) +
+  scale_shape_manual(name = "Type", 
+                     values = c("Households" = 2, "Capitals" = 8, "Agents" = 20)) +
+  theme_minimal() +
+  labs(title = "Households and Mobile Money Agents in East Africa",
+       subtitle = "Uganda, Kenya, Tanzania")
+
+
+print(plot_hh_agents_combined_capital)
+
+ggsave("plot_hh_agents_combined_capital.pdf", plot = plot_hh_agents_combined_capital, width = 11, height = 8)
+
+pdf("plot_hh_agents_combined_capital", width = 11, height = 8)
+print(plot_hh_agents_combined_capital)
+dev.off()
+
+```
+### Illustration of the instrument
+```{r}
+
+# Define the coordinates for the agent and the household
+agent_coords <- data.frame(lat = 0.84873, long = 33.12938)
+hh_coords <- data.frame(lat = 0.8412167, long = 32.85880)
+
+# Convert to SF objects
+agent_sf <- st_as_sf(agent_coords, coords = c("long", "lat"), crs = 4326)
+hh_sf <- st_as_sf(hh_coords, coords = c("long", "lat"), crs = 4326)
+
+# Create a linestring connecting the agent and the household
+line <- st_sfc(st_linestring(rbind(st_coordinates(agent_sf), st_coordinates(hh_sf))), crs = 4326)
+
+
+
+plot_instrument <- ggplot() +
+  geom_sf(data = base_map_uga, fill = NA, color = "lightgrey", lwd = 0.7) +
+  geom_sf(data = agent_sf, aes(color = "Agent"), size = 2) + 
+  geom_sf(data = hh_sf, aes(color = "Household"), size = 2, shape = 24) + 
+  geom_sf(data = line, color = "brown") +
+  theme_minimal() +
+  labs(title = "Illustration of the Instrument",
+       color = "Legend") + 
+  scale_color_manual(values = c("Agent" = "darkseagreen4", "Household" = "black")) # Define custom colors
+
+# Display the combined plot
+print(plot_instrument)
+
+ggsave("plot_instrument.pdf", plot = plot_instrument, width = 11, height = 8)
+
+pdf("plot_instrument", width = 11, height = 8)
+print(plot_instrument)
+dev.off()
+```
+
+
+### Plot for categorized distances
+```{r}
+
+
+# Function to categorize distances in meters
+categorize_distance_m <- function(distance) {
+  ifelse(distance >= 0 & distance <= 3000, "0-3 km",
+         ifelse(distance > 3000 & distance <= 5000, "3.1-5 km",
+                ifelse(distance > 5000 & distance <= 7000, "5.1-7 km",
+                       ">7 km")))
+}
+
+# Apply the categorization for Kenya
+ken_bal <- ken_bal %>%
+  mutate(distance_category = categorize_distance_m(nearest_agent_distance))
+
+# Apply the categorization for Tanzania
+tan_bal <- tan_bal %>%
+  mutate(distance_category = categorize_distance_m(nearest_agent_distance))
+
+# Apply the categorization for Uganda
+uga_bal_clean <- uga_bal_clean %>%
+  mutate(distance_category = categorize_distance_m(nearest_agent_distance))
+
+table(ken_bal$distance_category)
+table(tan_bal$distance_category)
+table(uga_bal_clean$distance_category)
+
+
+
+
+ken_data_plot <- ken_bal %>% 
+  dplyr::select(distance_category) %>%
+  dplyr::mutate(Country = 'Kenya')
+
+tan_data_plot <- tan_bal %>% 
+  dplyr::select(distance_category) %>%
+  dplyr::mutate(Country = 'Tanzania')
+
+uga_data_plot <- uga_bal_clean %>% 
+  dplyr::select(distance_category) %>%
+  dplyr::mutate(Country = 'Uganda')
+
+combined_data_plot <- bind_rows(ken_data_plot, tan_data_plot, uga_data_plot)
+
+combined_data_plot$distance_category <- factor(combined_data_plot$distance_category, 
+                                               levels = c("0-3 km", "3.1-5 km", "5.1-7 km", ">7 km"))
+
+
+plot_category_distances<- ggplot(combined_data_plot, aes(x = distance_category, fill = Country)) +
+  geom_bar(position = "dodge", stat = "count") +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Distribution of Distance Categories to Nearest Mobile Money Agent by Country",
+       x = "Distance Category",
+       y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave("plot_category_distances.png", plot = plot_category_distances, width = 8, height = 6, dpi = 300)
+```
+
+
+
+
