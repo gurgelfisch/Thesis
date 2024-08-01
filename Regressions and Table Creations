@@ -1,0 +1,761 @@
+---
+title: "thesis_tables"
+output: html_document
+date: "2024-03-08"
+---
+### First Stage Tanzania without logarithm
+```{r}
+fs_f <- used_mm ~ nearest_agent_distance
+
+fs_con_f <- used_mm ~ nearest_agent_distance + gender + Age +  marital_status + total_years_schooling  + literacy_reading
+
+fs_tan <- glm(fs_f, family=binomial(link="logit"), data = tan_bal)
+
+fs_con_tan <- glm(fs_con_f, family=binomial(link="logit"), data = tan_bal)
+
+summary(fs_tan)
+
+summary(fs_con_tan)
+```
+### First Stage Uganda without logarithm
+```{r}
+fs_uga <- glm(fs_f, family=binomial(link="logit"), data = uga_bal_clean)
+
+fs_con_uga <- glm(fs_con_f, family=binomial(link="logit"), data = uga_bal_clean)
+
+summary(fs_uga)
+
+summary(fs_con_uga)
+```
+### First Stage Kenya without logarithm
+```{r}
+fs_ken <- glm(fs_f, family=binomial(link="logit"), data = ken_bal)
+
+fs_con_ken <- glm(fs_con_f, family=binomial(link="logit"), data = ken_bal)
+
+summary(fs_ken)
+
+summary(fs_con_ken)
+```
+### Create Table with controls and robust standard errors
+```{r}
+# Create a list of your models
+model_list_con <- list(fs_con_ken, fs_con_tan, fs_con_uga)
+
+# Calculate robust standard errors
+vcov_ken_con <- vcovHC(fs_con_ken, type = "HC1")
+vcov_tan_con <- vcovHC(fs_con_tan, type = "HC1")
+vcov_uga_con <- vcovHC(fs_con_uga, type = "HC1")
+
+# Prepare models and robust SEs for modelsummary
+models_con <- list(fs_con_ken, fs_con_tan, fs_con_uga)
+vcovs_con <- list(vcov_ken_con, vcov_tan_con, vcov_uga_con)
+
+
+# Create a summary table
+msummary(model_list_con, 
+         statistic = c("conf.int"),
+         vcov = vcovs_con,
+         stars = TRUE,
+         title = c("Kenya", "Tanzania", "Uganda"),
+         output = "First_Stage_con_robust.docx")
+
+```
+### First Stage Tanzania Log instrument
+```{r}
+fs_logi_f <- used_mm ~ log_nearest_agent
+
+fs_logi_con_f <- used_mm ~ log_nearest_agent + gender + Age + marital_status + total_years_schooling  + literacy_reading
+
+fs_logi_tan <- glm(fs_logi_f, family=binomial(link="logit"), data = tan_bal)
+
+fs_logi_con_tan <- glm(fs_logi_con_f, family=binomial(link="logit"), data = tan_bal)
+
+fs_logi_con_tan_w <- glm(fs_logi_con_f, family=binomial(link="logit"),  weights = HH_Weight_Final, data = tan_bal)
+
+summary(fs_logi_tan)
+
+summary(fs_logi_con_tan)
+```
+### First Stage Log instrument Kenya
+```{r}
+fs_logi_ken <- glm(fs_logi_f, family=binomial(link="logit"), data = ken_bal)
+
+fs_logi_con_ken <- glm(fs_logi_con_f, family=binomial(link="logit"), data = ken_bal)
+
+fs_logi_con_ken_w <- glm(fs_logi_con_f, family=binomial(link="logit"), weights = HHWeight, data = ken_bal)
+
+summary(fs_logi_ken)
+summary(fs_logi_con_ken)
+```
+### First Stage Log instrument Uganda
+```{r}
+fs_logi_uga <- glm(fs_logi_f, family=binomial(link="logit"), data = uga_bal_clean)
+
+fs_logi_con_uga <- glm(fs_logi_con_f, family=binomial(link="logit"), data = uga_bal_clean)
+
+fs_logi_con_uga_W <- glm(fs_logi_con_f, family=binomial(link="logit"), weights = HHWeight, data = uga_bal_clean)
+
+summary(fs_logi_uga)
+summary(fs_logi_con_uga)
+```
+
+### Create Table without controls and log instrument
+```{r}
+ken_bal <- ken_bal %>% filter(!is.na(log_nearest_agent))
+tan_bal <- tan_bal %>% filter(!is.na(log_nearest_agent))
+uga_bal_clean <- uga_bal_clean %>% filter(!is.na(log_nearest_agent))
+
+
+# Create a list of models
+model_list_log <- list(fs_logi_ken, fs_logi_tan, fs_logi_uga)
+
+# Calculate robust standard errors
+vcov_logi_ken <- vcovHC(fs_logi_ken, type = "HC1")
+vcov_logi_tan <- vcovHC(fs_logi_tan, type = "HC1")
+vcov_logi_uga <- vcovHC(fs_logi_uga, type = "HC1")
+
+# Prepare models and robust SEs for modelsummary
+models_logi <- list(fs_logi_ken, fs_logi_tan, fs_logi_uga)
+vcovs_logi <- list(vcov_logi_ken, vcov_logi_tan, vcov_logi_uga)
+
+
+# Create a summary table
+msummary(model_list_log, 
+         statistic = c("conf.int"),
+         vcov = vcovs_logi,
+         stars = TRUE,
+         title = c("Kenya", "Tanzania", "Uganda"),
+         output = "First_Stage_log_woc.docx")
+```
+### Prepare additional values for Table with controls and log instrument
+```{r}
+ ### 1. Percent correctly predicted
+
+predict_ken <- predict(fs_logi_con_ken, type = "response")
+predicted_class_ken <- ifelse(predict_ken > 0.5, 1, 0)
+actual_ken <- fs_logi_con_ken$model$used_mm
+
+# Calculate percent correctly predicted
+percent_correctly_predicted_ken <- mean(predicted_class_ken == actual_ken) * 100
+
+
+predict_tan <- predict(fs_logi_con_tan, type = "response")
+predicted_class_tan <- ifelse(predict_tan > 0.5, 1, 0)
+actual_tan <- fs_logi_con_tan$model$used_mm
+
+# Calculate percent correctly predicted
+percent_correctly_predicted_tan <- mean(predicted_class_tan == actual_tan) * 100
+
+
+predict_uga <- predict(fs_logi_con_uga, type = "response")
+predicted_class_uga <- ifelse(predict_uga > 0.5, 1, 0)
+actual_uga <- fs_logi_con_uga$model$used_mm 
+# Calculate percent correctly predicted
+percent_correctly_predicted_uga <- mean(predicted_class_uga == actual_uga) * 100
+
+### Pseudo R²
+logLik_full_ken <- logLik(fs_logi_con_ken)
+null_model_ken <- glm(used_mm ~ 1, family = binomial, data = fs_logi_con_ken$model) 
+logLik_null_ken <- logLik(null_model_ken)
+pseudo_r_squared_ken <- 1 - (logLik_full_ken/logLik_null_ken)
+
+logLik_full_tan <- logLik(fs_logi_con_tan)
+null_model_tan <- glm(used_mm ~ 1, family = binomial, data = fs_logi_con_tan$model) 
+logLik_null_tan <- logLik(null_model_tan)
+pseudo_r_squared_tan <- 1 - (logLik_full_tan/logLik_null_tan)
+
+logLik_full_uga <- logLik(fs_logi_con_uga)
+null_model_uga <- glm(used_mm ~ 1, family = binomial, data = fs_logi_con_uga$model) 
+logLik_null_uga <- logLik(null_model_uga)
+pseudo_r_squared_uga <- 1 - (logLik_full_uga/logLik_null_uga)
+
+
+### Robust Standarderrors
+# Calculate robust standard errors
+vcov_ken_con <- vcovHC(fs_logi_con_ken, type = "HC1")
+vcov_tan_con <- vcovHC(fs_logi_con_tan, type = "HC1")
+vcov_uga_con <- vcovHC(fs_logi_con_uga, type = "HC1")
+
+# Prepare models and robust SEs for modelsummary
+models_con <- list(fs_logi_con_ken, fs_logi_con_tan, fs_logi_con_uga)
+vcovs_con <- list(vcov_ken_con, vcov_tan_con, vcov_uga_con)
+```
+### Create Table
+```{r}
+add_rows_data_1 <- data.frame(
+  "Statistic" = c("Percent Correctly Predicted", "Pseudo R-squared", "Log Likelihood"),
+  "Kenya" = c(percent_correctly_predicted_ken, pseudo_r_squared_ken, logLik(fs_logi_con_ken)),
+  "Tanzania" = c(percent_correctly_predicted_tan, pseudo_r_squared_tan, logLik(fs_logi_con_tan)),
+  "Uganda" = c(percent_correctly_predicted_uga, pseudo_r_squared_uga, logLik(fs_logi_con_uga))
+)
+
+models_log_c_1 <- list(Kenya = fs_logi_con_ken, Tanzania = fs_logi_con_tan, Uganda = fs_logi_con_uga)
+
+modelsummary(models_log_c_1,
+             output = "fs_logit_table_1.docx",
+             title = "First Stage Logit Models",
+             add_rows = add_rows_data_1,
+             notes = "Robust standard errors (HC1) are used. Percent correctly predicted and pseudo R-squared are reported for each model.",
+             stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01)
+)
+```
+### Trying to add the Chi Squared likelihood ratio test as replacement for the F-Statistic and mannually added the values to the table 
+```{r}
+summary_ken <- summary(fs_logi_con_ken)
+summary_tan <- summary(fs_logi_con_tan)
+summary_uga <- summary(fs_logi_con_uga)
+
+# Likelihood ratio test comparing to a null model (intercept only model)
+lrtest_ken <- lrtest(fs_logi_con_ken, glm(used_mm ~ 1, family = binomial, data = fs_logi_con_ken$model))
+lrtest_tan <- lrtest(fs_logi_con_tan, glm(used_mm ~ 1, family = binomial, data = fs_logi_con_tan$model))
+lrtest_uga <- lrtest(fs_logi_con_uga, glm(used_mm ~ 1, family = binomial,data = fs_logi_con_uga$model))
+
+# Print results
+print(lrtest_ken)
+print(lrtest_tan)
+print(lrtest_uga)
+
+```
+### Without controls for the appendix
+```{r}
+## Kenya
+model_data_ken_woc <- model.frame(fs_logi_ken)
+predicted_probs_ken_woc <- predict(fs_logi_ken, type = "response")
+predicted_class_ken_woc <- ifelse(predicted_probs_ken_woc > 0.5, 1, 0)
+actual_class_ken_woc <- model_data_ken_woc$used_mm  # Access directly from the dataset
+percent_correctly_predicted_ken_woc <- mean(predicted_class_ken_woc == actual_class_ken_woc) * 100
+pseudo_r_squared_ken_woc <- performance::r2(fs_logi_ken)$R2[1]
+
+#Tanzania
+model_data_tan_woc <- model.frame(fs_logi_tan)
+predicted_probs_tan_woc <- predict(fs_logi_tan, type = "response")
+predicted_class_tan_woc <- ifelse(predicted_probs_tan_woc > 0.5, 1, 0)
+actual_class_tan_woc <- model_data_tan_woc$used_mm
+percent_correctly_predicted_tan_woc <- mean(predicted_class_tan_woc == actual_class_tan_woc) * 100
+# Calculating pseudo R-squared
+pseudo_r_squared_tan_woc <- performance::r2(fs_logi_tan)$R2[1]
+
+#Uganda
+model_data_uga_woc <- model.frame(fs_logi_uga)
+predicted_probs_uga_woc <- predict(fs_logi_uga, type = "response")
+predicted_class_uga_woc <- ifelse(predicted_probs_uga_woc > 0.5, 1, 0)
+actual_class_uga_woc <- model_data_uga_woc$used_mm
+percent_correctly_predicted_uga_woc <- mean(predicted_class_uga_woc == actual_class_uga_woc) * 100
+
+# Calculating pseudo R-squared
+pseudo_r_squared_uga_woc <- performance::r2(fs_logi_uga)$R2[1]
+```
+
+
+```{r}
+add_rows_data_2 <- data.frame(
+  "Statistic" = c("Percent Correctly Predicted", "Pseudo R-squared", "Log Likelihood"),
+  "Kenya" = c(percent_correctly_predicted_ken_woc, pseudo_r_squared_ken_woc, logLik(fs_logi_ken)),
+  "Tanzania" = c(percent_correctly_predicted_tan_woc, pseudo_r_squared_tan_woc, logLik(fs_logi_tan)),
+  "Uganda" = c(percent_correctly_predicted_uga_woc, pseudo_r_squared_uga_woc, logLik(fs_logi_uga))
+)
+
+
+models_log_woc_1 <- list(Kenya = fs_logi_ken, Tanzania = fs_logi_tan, Uganda = fs_logi_uga)
+
+modelsummary(models_log_woc_1,
+             output = "fs_logit_table_woc.docx",
+             title = "First Stage Logit Models",
+             add_rows = add_rows_data_2,
+             notes = "Robust standard errors (HC1) are used. Percent correctly predicted and pseudo R-squared are reported for each model.",
+             stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01)
+)
+
+```
+### Try to cluster the distances
+```{r}
+# Function to categorize distances in meters
+categorize_distance_m <- function(distance) {
+  ifelse(distance >= 0 & distance <= 3000, "0-3 km",
+         ifelse(distance > 3000 & distance <= 5000, "3.1-5 km",
+                ifelse(distance > 5000 & distance <= 7000, "5.1-7 km",
+                       ">7 km")))
+}
+
+# Apply the categorization for Kenya
+ken_bal <- ken_bal %>%
+  mutate(distance_category = categorize_distance_m(nearest_agent_distance))
+
+# Apply the categorization for Tanzania
+tan_bal <- tan_bal %>%
+  mutate(distance_category = categorize_distance_m(nearest_agent_distance))
+
+# Apply the categorization for Uganda
+uga_bal_clean <- uga_bal_clean %>%
+  mutate(distance_category = categorize_distance_m(nearest_agent_distance))
+
+table(ken_bal$distance_category)
+table(tan_bal$distance_category)
+table(uga_bal_clean$distance_category)
+```
+
+```{r}
+# Convert distance_category to a factor
+ken_bal$distance_category <- as.factor(ken_bal$distance_category)
+tan_bal$distance_category <- as.factor(tan_bal$distance_category)
+uga_bal_clean$distance_category <- as.factor(uga_bal_clean$distance_category)
+
+
+model_ken_cat <- glm(used_mm ~ distance_category,family=binomial(link="logit"), data = ken_bal)
+
+# Similarly, for Tanzania and Uganda
+model_tan_cat <- glm(used_mm ~ distance_category,family=binomial(link="logit"), data = tan_bal)
+model_uga_cat <- glm(used_mm ~ distance_category,family=binomial(link="logit"), data = uga_bal_clean)
+
+# Summary of the models
+summary(model_ken_cat)
+summary(model_tan_cat)
+summary(model_uga_cat)
+
+
+fs_dist_cat <- list(
+  "Kenya" = model_ken_cat,
+  "Tanzania" = model_tan_cat,
+  "Uganda" = model_uga_cat
+  
+)
+
+modelsummary(fs_dist_cat,
+             output = "categorized distances_fs.docx", 
+             title = "Categorized distances first stage",
+             stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
+             notes = "Standard errors in parentheses."
+             )
+```
+### Second Stage with Log instrument and Log income
+```{r}
+tan_bal <- tan_bal %>%
+  filter(!is.infinite(log_income), !is.na(log_income))
+
+
+uga_bal_clean <- uga_bal_clean %>%
+  filter(!is.infinite(log_income), !is.na(log_income))
+
+### Tanzania
+iv_tan_logi_linc_woc <- ivreg( log_income ~ used_mm | log_nearest_agent, data = tan_bal)
+
+
+iv_tan_logi_linc_c <- ivreg( log_income ~ used_mm + gender + Age +  marital_status + total_years_schooling  + literacy_reading|log_nearest_agent+ gender + Age + marital_status + total_years_schooling  + literacy_reading, data = tan_bal)
+
+### Uganda
+
+iv_uga_logi_linc_woc <- ivreg( log_income ~ used_mm | log_nearest_agent, data = uga_bal_clean)
+
+
+iv_uga_logi_linc_c <- ivreg( log_income ~ used_mm + gender + Age + marital_status + total_years_schooling  + literacy_reading|log_nearest_agent+ gender + Age + marital_status + total_years_schooling  + literacy_reading, data = uga_bal_clean)
+
+summary(iv_tan_logi_linc_c)
+summary(iv_uga_logi_linc_c)
+
+# Calculate robust standard errors for Tanzania
+vcov_tan_linc_c <- vcovHC(iv_tan_logi_linc_c, type = "HC1")
+
+# Calculate robust standard errors for Uganda
+vcov_uga_linc_c <- vcovHC(iv_uga_logi_linc_c, type = "HC1")
+
+```
+### Table with controls
+```{r}
+models_linc <- list(
+  iv_tan_logi_linc_c,
+  iv_uga_logi_linc_c
+)
+
+vcovs_linc <- list(
+  vcov_tan_linc_c,
+  vcov_uga_linc_c
+)
+
+# Generate Table using robust standard errors
+modelsummary(models_linc,
+             vcov = vcovs_linc,
+             output = "Second_stage_log_inc.docx", 
+             title = "IV Regression Results With Controls",
+             stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
+             notes = "Robust standard errors in parentheses."
+)
+
+
+```
+### Table without controls
+```{r}
+second_stage_linc_woc <- list(
+  "Tanzania" = iv_tan_logi_linc_woc,
+  "Uganda" = iv_uga_logi_linc_woc
+  
+)
+
+modelsummary(second_stage_linc_woc,
+             output = "Second_stage_log_inc_woc.docx", 
+             title = "IV Regression Results With Controls",
+             stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
+             notes = "Standard errors in parentheses."
+             )
+```
+### Second Stage with log instrument and log income and 95% quantile
+```{r}
+### Kenya
+income_95th_percentile_usd_ken <- quantile(ken_bal$total_income_usd, 0.95, na.rm= TRUE)
+
+# Filter the dataframe to exclude incomes above the 95th percentile
+ken_filtered_usd <- subset(ken_bal, total_income_usd <= income_95th_percentile_usd_ken)
+
+
+### Tanzania
+# Calculate the 95th percentile (quantile) of the income
+income_95th_percentile_usd_tan <- quantile(tan_bal$total_income_usd, 0.95, na.rm= TRUE)
+
+# Filter the dataframe to exclude incomes above the 95th percentile
+tan_filtered_usd <- subset(tan_bal, total_income_usd <= income_95th_percentile_usd_tan)
+
+### Uganda
+
+income_95th_percentile_usd_uga <- quantile(uga_bal_clean$total_income_usd, 0.95, na.rm= TRUE)
+
+# Filter the dataframe to exclude incomes above the 95th percentile
+uga_filtered_usd <- subset(uga_bal_clean, total_income_usd <= income_95th_percentile_usd_uga)
+
+
+ken_filtered_usd$log_nearest_agent <- log(ken_filtered_usd$nearest_agent_distance)
+tan_filtered_usd$log_nearest_agent <- log(tan_filtered_usd$nearest_agent_distance)
+uga_filtered_usd$log_nearest_agent <- log(uga_filtered_usd$nearest_agent_distance)
+
+ken_filtered_usd$log_income <- log(ken_filtered_usd$total_income_usd)
+tan_filtered_usd$log_income <- log(tan_filtered_usd$total_income_usd)
+uga_filtered_usd$log_income <- log(uga_filtered_usd$total_income_usd)
+```
+### first stage without controls
+```{r}
+fs_ken_95 <- glm(fs_logi_f, family=binomial(link="logit"), data = ken_filtered_usd)
+fs_tan_95 <- glm(fs_logi_f, family=binomial(link="logit"), data = tan_filtered_usd)
+fs_uga_95 <- glm(fs_logi_f, family=binomial(link="logit"), data = uga_filtered_usd)
+
+summary(fs_ken_95)
+summary(fs_tan_95)
+summary(fs_uga_95)
+```
+### Second Stage without controls log instrument and log income
+```{r}
+tan_filtered_usd <- tan_filtered_usd %>%
+  filter(!is.infinite(log_income), !is.na(log_income))
+
+
+uga_filtered_usd <- uga_filtered_usd %>%
+  filter(!is.infinite(log_income), !is.na(log_income))
+
+
+iv_tan_logi_filt_woc <- ivreg( total_income_usd ~ used_mm | log_nearest_agent, data = tan_filtered_usd)
+
+
+iv_tan_logi_filt_c <- ivreg(total_income_usd ~ used_mm + gender + Age + marital_status + total_years_schooling  + literacy_reading|log_nearest_agent+ gender + Age +  marital_status + total_years_schooling  + literacy_reading, data = tan_filtered_usd)
+
+### Uganda
+
+iv_uga_logi_filt_woc <- ivreg( total_income_usd ~ used_mm | log_nearest_agent, data = uga_filtered_usd)
+
+
+iv_uga_logi_filt_c <- ivreg( total_income_usd ~ used_mm + gender + Age + marital_status + total_years_schooling  + literacy_reading|log_nearest_agent+ gender + Age +  marital_status + total_years_schooling  + literacy_reading, data = uga_filtered_usd)
+
+summary(iv_tan_logi_filt_woc)
+summary(iv_tan_logi_filt_c)
+summary(iv_uga_logi_filt_woc)
+summary(iv_uga_logi_filt_c)
+```
+## Table 95 woc
+```{r}
+second_stage_95_woc <- list(
+  "Tanzania" = iv_tan_logi_filt_woc,
+  "Uganda" = iv_uga_logi_filt_woc
+  
+)
+
+modelsummary(second_stage_95_woc,
+             output = "Second_stage_95_woc.docx", 
+             title = "IV Regression Results 95 Quantile Without Controls",
+             stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
+             notes = "Standard errors in parentheses."
+             )
+
+```
+
+### Table 95 with controls
+```{r}
+second_stage_95_c <- list(
+  "Tanzania" = iv_tan_logi_filt_c,
+  "Uganda" = iv_uga_logi_filt_c
+  
+)
+
+modelsummary(second_stage_95_c,
+             output = "Second_stage_95_c.docx", 
+             title = "IV Regression Results 95 Quantile With Controls",
+             stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
+             notes = "Standard errors in parentheses."
+             )
+```
+
+
+
+### Creating tables with savings as outcome and 95% quantile
+```{r}
+### Tanzania
+iv_tan_logi_sav_95_woc <- ivreg( total_savings_usd ~ used_mm | log_nearest_agent, data = tan_filtered_usd)
+
+
+iv_tan_logi_sav_95_c <- ivreg( total_savings_usd ~ used_mm + gender + Age + marital_status + total_years_schooling  + literacy_reading|log_nearest_agent+ gender + Age +  marital_status + total_years_schooling  + literacy_reading, data = tan_filtered_usd)
+
+### Uganda
+
+iv_uga_logi_sav_95_woc <- ivreg( total_savings_usd ~ used_mm | log_nearest_agent, data = uga_filtered_usd)
+
+
+iv_uga_logi_sav_95_c <- ivreg( total_savings_usd ~ used_mm + gender + Age +  marital_status + total_years_schooling  + literacy_reading|log_nearest_agent+ gender + Age + marital_status + total_years_schooling  + literacy_reading, data = uga_filtered_usd)
+```
+
+### Table without controls
+```{r}
+second_stage_sav_95_woc <- list(
+  "Tanzania" = iv_tan_logi_sav_95_woc,
+  "Uganda" = iv_uga_logi_sav_95_woc
+  
+)
+
+modelsummary(second_stage_sav_95_woc,
+             output = "Second_stage_sav_95_woc.docx", 
+             title = "IV Regression Results Savings Without Controls",
+             stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
+             notes = "Standard errors in parentheses. "
+             )
+```
+### Table savings with controls
+```{r}
+second_stage_sav_95_c <- list(
+  "Tanzania" = iv_tan_logi_sav_95_c,
+  "Uganda" = iv_uga_logi_sav_95_c
+  
+)
+
+modelsummary(second_stage_sav_95_c,
+             output = "Second_stage_sav_95_c.docx", 
+             title = "IV Regression Results Savings With Controls",
+             stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
+             notes = "Standard errors in parentheses."
+             )
+
+```
+
+###IV and Table log savings
+```{r}
+iv_tan_logi_lsav_woc <- ivreg( log_savings ~ used_mm | log_nearest_agent, data = tan_bal)
+
+
+iv_tan_logi_lsav_c <- ivreg( log_savings ~ used_mm + gender + Age + marital_status +total_years_schooling+ literacy_reading|log_nearest_agent+ gender + Age + marital_status  +total_years_schooling+ literacy_reading, data = tan_bal)
+
+### Uganda
+
+iv_uga_logi_lsav_woc <- ivreg( log_savings ~ used_mm | log_nearest_agent, data = uga_bal_clean)
+
+
+iv_uga_logi_lsav_c <- ivreg( log_savings ~ used_mm + gender + Age + marital_status  + total_years_schooling+ literacy_reading|log_nearest_agent+ gender + Age +  marital_status + total_years_schooling + literacy_reading, data = uga_bal_clean)
+
+# Calculate robust standard errors for Tanzania
+vcov_tan_lsav_c <- vcovHC(iv_tan_logi_lsav_c, type = "HC1")
+
+# Calculate robust standard errors for Uganda
+vcov_uga_lsav_c <- vcovHC(iv_uga_logi_lsav_c, type = "HC1")
+```
+### Table without controls
+```{r}
+second_stage_lsav_woc <- list(
+  "Tanzania" = iv_tan_logi_lsav_woc,
+  "Uganda" = iv_uga_logi_lsav_woc
+  
+)
+
+modelsummary(second_stage_lsav_woc,
+             output = "Second_stage_log_sav_woc.docx", 
+             title = "IV Regression Results Savings Without Controls",
+             stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
+             notes = "Standard errors in parentheses."
+             )
+```
+### Table log savings with controls
+```{r}
+vcovs_sav <- list(
+  vcov_tan_lsav_c,
+  vcov_uga_lsav_c
+)
+
+second_stage_lsav_c <- list(
+  "Tanzania" = iv_tan_logi_lsav_c,
+  "Uganda" = iv_uga_logi_lsav_c
+  
+)
+
+modelsummary(second_stage_lsav_c,
+             vcov = vcovs_sav,
+             output = "Second_stage_log_sav_c_robust.docx", 
+             title = "IV Regression Results Savings With Controls",
+             stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
+             notes = "Standard errors in parentheses."
+             )
+```
+
+### Creating Rural Data Set
+```{r}
+ken_rural <- filter(ken_bal, urban_rural == "Rural")
+tan_rural <- filter(tan_bal, urban_rural == "Rural")
+uga_rural <- filter(uga_bal_clean, urban_rural == "Rural")
+
+```
+### First Stage Rural Sample
+```{r}
+fs_logi_f <- used_mm ~ log_nearest_agent
+fs_ken_rural <- glm(fs_logi_f, family=binomial(link="logit"), data = ken_rural)
+fs_tan_rural <- glm(fs_logi_f, family=binomial(link="logit"), data = tan_rural)
+fs_uga_rural <- glm(fs_logi_f, family=binomial(link="logit"), data = uga_rural)
+
+summary(fs_ken_rural)
+summary(fs_tan_rural)
+summary(fs_uga_rural)
+```
+
+
+```{r}
+ken_rural$log_income <- log(ken_rural$total_income_usd)
+tan_rural$log_income <- log(tan_rural$total_income_usd)
+uga_rural$log_income <- log(uga_rural$total_income_usd)
+
+ken_rural <- ken_rural %>%
+  filter(!is.infinite(log_income), !is.na(log_income))
+tan_rural <- tan_rural %>%
+  filter(!is.infinite(log_income), !is.na(log_income))
+
+
+uga_rural <- uga_rural %>%
+  filter(!is.infinite(log_income), !is.na(log_income))
+
+### Kenya
+iv_ken_logi_linc_rural_woc <- ivreg( log_income ~ used_mm | log_nearest_agent, data = ken_rural)
+
+
+iv_ken_logi_linc_rural_c <- ivreg( log_income ~ used_mm + gender + Age + marital_status + total_years_schooling  + literacy_reading|log_nearest_agent+ gender + Age +  marital_status + total_years_schooling  + literacy_reading, data = ken_rural)
+
+### Tanzania
+iv_tan_logi_linc_rural_woc <- ivreg( log_income ~ used_mm | log_nearest_agent, data = tan_rural)
+
+
+iv_tan_logi_linc_rural_c <- ivreg( log_income ~ used_mm + gender + Age + marital_status + total_years_schooling  + literacy_reading|log_nearest_agent+ gender + Age +  marital_status + total_years_schooling  + literacy_reading, data = tan_rural)
+
+### Uganda
+
+iv_uga_logi_linc_rural_woc <- ivreg( log_income ~ used_mm | log_nearest_agent, data = uga_rural)
+
+
+iv_uga_logi_linc_rural_c <- ivreg( log_income ~ used_mm + gender + Age +marital_status + total_years_schooling  + literacy_reading|log_nearest_agent+ gender + Age + marital_status + total_years_schooling  + literacy_reading, data = uga_rural)
+
+summary(iv_tan_logi_linc_rural_c)
+summary(iv_uga_logi_linc_rural_c)
+summary(iv_tan_logi_linc_rural_woc)
+summary(iv_uga_logi_linc_rural_woc)
+```
+### Table Rural Sample First Stage
+```{r}
+rural_1s_woc <- list(
+  "Kenya" = fs_ken_rural,
+  "Tanzania" = fs_tan_rural,
+  "Uganda" = fs_uga_rural
+  
+)
+
+modelsummary(rural_1s_woc,
+             output = "1s_rural_woc.docx", 
+             title = "IV Regression Results Rural Sample Without Controls",
+             stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
+             notes = "Standard errors in parentheses."
+             )
+```
+
+### Second Stage Rural Sample
+```{r}
+rural_2s_woc <- list(
+  "Kenya" = iv_ken_logi_linc_rural_woc,
+  "Tanzania" = iv_tan_logi_linc_rural_woc,
+  "Uganda" = iv_uga_logi_linc_rural_woc
+  
+)
+
+modelsummary(rural_2s_woc,
+             output = "2s_rural_woc.docx", 
+             title = "IV Regression Results Rural Sample Without Controls",
+             stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
+             notes = "Standard errors in parentheses."
+             )
+```
+
+#### Running the IV regression as a OLS model income
+```{r}
+lm_tan_logi_linc_woc <- lm( log_income ~ used_mm, data = tan_bal)
+
+
+lm_tan_logi_linc_c <- lm( log_income ~ used_mm + gender + Age + marital_status +total_years_schooling+ literacy_reading, data = tan_bal)
+
+lm_uga_logi_linc_woc <- lm( log_income ~ used_mm, data = uga_bal_clean)
+
+
+lm_uga_logi_linc_c <- lm( log_income ~ used_mm + gender + Age + marital_status +total_years_schooling+ literacy_reading, data = uga_bal_clean)
+
+
+summary(lm_tan_logi_linc_c)
+summary(lm_tan_logi_linc_woc)
+```
+#### Running the IV regression as a OLS model log savings
+```{r}
+lm_tan_logi_lsav_woc <- lm( log_savings ~ used_mm, data = tan_bal)
+
+
+lm_tan_logi_lsav_c <- lm( log_savings ~ used_mm + gender + Age + marital_status +total_years_schooling+ literacy_reading, data = tan_bal)
+
+lm_uga_logi_lsav_woc <- lm( log_savings ~ used_mm, data = uga_bal_clean)
+
+
+lm_uga_logi_lsav_c <- lm( log_savings ~ used_mm + gender + Age + marital_status +total_years_schooling+ literacy_reading, data = uga_bal_clean)
+```
+### Creating Table for lm 
+```{r}
+lm_c <- list(
+  "Tanzania" = lm_tan_logi_linc_c,
+  "Uganda" = lm_uga_logi_linc_c
+  
+)
+
+modelsummary(lm_c,
+             output = "lm_with_controls_inc.docx", 
+             title = "Lm Regression Results Income With Controls",
+             stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
+             notes = "Standard errors in parentheses."
+             )
+```
+
+```{r}
+lm_sav_c <- list(
+  "Tanzania" = lm_tan_logi_lsav_c,
+  "Uganda" = lm_uga_logi_lsav_c
+  
+)
+
+modelsummary(lm_sav_c,
+             output = "lm_with_controls_sav.docx", 
+             title = "Lm Regression Results Savings With Controls",
+             stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
+             notes = "Standard errors in parentheses."
+             )
+```
+
+
